@@ -3,15 +3,16 @@
 #include <boost/beast.hpp>
 #include <memory>
 #include "Router.hpp"
+#include "WsSession.hpp"
 
 namespace beast = boost::beast;
 namespace http = beast::http;
 namespace net = boost::asio;
 using tcp = net::ip::tcp;
 
-class Session : public std::enable_shared_from_this<Session> {
+class HttpSession : public std::enable_shared_from_this<HttpSession> {
 public:
-	Session(tcp::socket&&, std::shared_ptr<Router>);
+	HttpSession(tcp::socket&&, std::shared_ptr<Router>, ChatRoom*, DBPool*);
 	void run();
 private:
 	void do_read();
@@ -22,4 +23,6 @@ private:
 	beast::flat_buffer buffer;
 	std::shared_ptr<Router> router;
 	http::request<http::string_body> req;
+	ChatRoom* chatroom;
+	DBPool* dbpool;
 };

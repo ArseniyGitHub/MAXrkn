@@ -13,8 +13,13 @@ class Router {
 public:
 	Router(DBPool&);
 	http::message_generator handle_request(http::request<http::string_body>&&);
+
 private:
-	DBPool dbpool;
+	DBPool* dbpool;
 	http::message_generator make_error_responce(const http::request<http::string_body>&, http::status, std::string_view);
 	http::message_generator make_json_responce(const http::request<http::string_body>&, const nlohmann::json&, http::status);
+	http::message_generator handle_register(http::request<http::string_body>&&);
+	http::message_generator handle_login(http::request<http::string_body>&&);
+	http::message_generator handle_get_messages(http::request<http::string_body>&&);
+	http::message_generator handle_send_message(http::request<http::string_body>&&);
 };
