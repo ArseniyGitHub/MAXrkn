@@ -64,7 +64,7 @@ public:
 };
 
 int main() {
-	system("chcp 65001");
+	system("chcp 1251 > nul");
 	try {
 		std::shared_ptr<DBPool> db(new DBPool("postgresql://postgres:a1b3c5@localhost:5432/MainUSA_DB", 10));
 		std::shared_ptr<Router> r(new Router(*db));

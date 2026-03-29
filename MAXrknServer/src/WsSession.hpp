@@ -30,5 +30,4 @@ private:
 	ChatRoom* chatroom;
 	DBPool* dbpool;
 	ws::stream<beast::tcp_stream> stream;
-	
 };

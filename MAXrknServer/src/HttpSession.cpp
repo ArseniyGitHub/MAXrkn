@@ -13,7 +13,6 @@ void HttpSession::do_read() {
 	req = {};
 	stream.expires_after(std::chrono::seconds(30));
 	http::async_read(stream, buffer, req, beast::bind_front_handler(&HttpSession::on_read, shared_from_this()));
-
 }
 
 void HttpSession::on_read(beast::error_code err, size_t received) {

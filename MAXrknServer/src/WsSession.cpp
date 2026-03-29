@@ -24,14 +24,24 @@ void WsSession::on_read(beast::error_code err, size_t received) {
 	auto msg_string = beast::buffers_to_string(buffer.data());
 	try {
 		json m = json::parse(msg_string);
+		std::cout << msg_string << std::endl;
 		auto con = dbpool->getConnection();
 		pqxx::work w(*con);
-		w.exec_params("INSERT INTO messages (sender_id, content) values ($1, $2)", m["user_id"].get<int>(), m["text"].get<std::string>());
+		auto res = w.exec_params("(WITH msg AS (INSERT INTO messages (sender_id, message_text, send_time) values ($1, $2, NOW()) RETURNING id, sender_id, send_time) SELECT i.id, i.send_time, u.username FROM msg i JOIN users u ON u.id = i.sender_id)", m["user_id"].get<int>(), m["content"].get<std::string>());
 		w.commit();
-		chatroom->broadcast(msg_string);
+		if (!res.empty()) {
+			json broadmsg;
+			broadmsg["id"] = res[0][0].as<long long>();
+			broadmsg["created_at"] = res[0][1].as<std::string>();
+			broadmsg["sender_name"] = res[0][2].as<std::string>();
+			broadmsg["sender_id"] = m["user_id"];
+			broadmsg["content"] = m["content"];
+			chatroom->broadcast(broadmsg.dump());
+		}
+		
 	}
 	catch (const std::exception& e) {
-		
+		std::cerr << "Ошибка: " << e.what() << std::endl;
 	}
 }
 

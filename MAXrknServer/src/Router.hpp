@@ -8,12 +8,13 @@
 
 namespace beast = boost::beast;
 namespace http = beast::http;
+using json = nlohmann::json;
 
 class Router {
 public:
 	Router(DBPool&);
 	http::message_generator handle_request(http::request<http::string_body>&&);
-
+	bool verify_token(const std::string& token, size_t& user_id);
 private:
 	DBPool* dbpool;
 	http::message_generator make_error_responce(const http::request<http::string_body>&, http::status, std::string_view);
