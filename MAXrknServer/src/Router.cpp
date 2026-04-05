@@ -45,7 +45,27 @@ http::message_generator Router::make_json_responce(const http::request<http::str
 
 http::message_generator Router::handle_register(http::request<http::string_body>&& req)
 {
-	return make_json_responce(req, {}, http::status::ok);
+	try {
+		auto data = json::parse(req.body());
+		if (!data.contains("username")) throw;
+		if (!data.contains("password")) throw;
+		std::string username = data["username"].get<std::string>();
+		std::string password = data["password"].get<std::string>();
+		auto conn = dbpool->getConnection();
+		pqxx::work w(*conn);
+		auto check = w.exec_params("SELECT id FROM users WHERE username = $1", username);
+		if(!check.empty())
+			return make_error_responce(req, http::status::conflict, "User with this username already exists");
+		w.exec_params("INSERT INTO users (username, password, create_time) VALUES ($1, $2, NOW())", username, password);
+		w.commit();
+		json answer;
+		answer["status"] = "success";
+		return make_json_responce(req, answer, http::status::ok);
+	}
+	catch (const std::exception& e) {
+		std::cerr << "Ошибка при авторизации: " << e.what() << std::endl;
+		return make_error_responce(req, http::status::bad_request, "Registration failed");
+	}
 }
 
 http::message_generator Router::handle_login(http::request<http::string_body>&& req)

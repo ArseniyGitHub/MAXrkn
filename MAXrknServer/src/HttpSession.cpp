@@ -26,6 +26,7 @@ void HttpSession::on_read(beast::error_code err, size_t received) {
 		return;
 	}
 	if (beast::websocket::is_upgrade(req)) {
+		stream.expires_never();
 		std::make_shared<WsSession>(std::move(this->stream), chatroom, dbpool)->run(std::move(req));
 		return;
 	}
