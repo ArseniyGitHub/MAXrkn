@@ -7,14 +7,16 @@
 #include "src/Database.hpp"
 #include "src/HttpSession.hpp"
 #include "src/Router.hpp"
+#include <boost/asio/ssl.hpp>
 
 namespace net = boost::asio;
 using tcp = net::ip::tcp;
 
 class Listener : public std::enable_shared_from_this<Listener> {
 	net::io_context* io;
+	net::ssl::context* ctx;
 	tcp::acceptor acc;
-	ChatRoom* cr;
+	RoomMenenger* cr;
 	DBPool* dbpool;
 	std::shared_ptr<Router> router;
 	void on_accept(beast::error_code ec, tcp::socket socket) {
@@ -26,7 +28,7 @@ class Listener : public std::enable_shared_from_this<Listener> {
 			std::this_thread::sleep_for(std::chrono::milliseconds(100));
 		}
 		else {
-			std::make_shared<HttpSession>(std::move(socket), router, cr, dbpool)->run();
+			std::make_shared<HttpSession>(std::move(socket), ctx, router, cr, dbpool)->run();
 		}
 		do_accept();
 	}
@@ -34,7 +36,7 @@ class Listener : public std::enable_shared_from_this<Listener> {
 		acc.async_accept(net::make_strand(*io), beast::bind_front_handler(&Listener::on_accept, shared_from_this()));
 	}
 public:
-	Listener(net::io_context& ioc, tcp::endpoint listen_endpoint, std::shared_ptr<Router> r, ChatRoom* cr, DBPool* db) : io(&ioc), router(r), acc(ioc), cr(cr), dbpool(db) {
+	Listener(net::io_context& ioc, net::ssl::context& ctx, tcp::endpoint listen_endpoint, std::shared_ptr<Router> r, RoomMenenger* cr, DBPool* db) : io(&ioc), router(r), acc(ioc), cr(cr), dbpool(db), ctx(&ctx) {
 		beast::error_code ec;
 		acc.open(listen_endpoint.protocol(), ec);
 		if (ec) {
@@ -66,14 +68,20 @@ public:
 int main() {
 	system("chcp 1251 > nul");
 	try {
+		net::ssl::context ctx{ net::ssl::context::tlsv13 };
+		ctx.use_certificate_chain_file("D:/libs/crypt/ssl/certs/cert.pen");
+		ctx.use_private_key_file("D:/libs/crypt/ssl/certs/key.m", net::ssl::context::pem);
+		ctx.set_password_callback([&] (auto maxLength, auto purpose) {
+			return "test";
+			});
 		std::shared_ptr<DBPool> db(new DBPool("postgresql://postgres:a1b3c5@localhost:5432/MainUSA_DB", 10));
 		std::shared_ptr<Router> r(new Router(*db));
-		ChatRoom* cr = new ChatRoom();
+		RoomMenenger* cr = new RoomMenenger();
 		const auto address = net::ip::make_address("0.0.0.0");
 		unsigned short port = 24242;
 		int thread_count = std::max(1u, std::thread::hardware_concurrency());
 		net::io_context ioc;
-		auto l = std::make_shared<Listener>(ioc, tcp::endpoint(address, port), r, cr, db.get());
+		auto l = std::make_shared<Listener>(ioc, ctx, tcp::endpoint(address, port), r, cr, db.get());
 		l->run();
 		std::vector<std::thread> thrPool(thread_count - 1);
 		for (auto& e : thrPool) {

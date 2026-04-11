@@ -144,14 +144,18 @@ Router::Router(DBPool& pool) : dbpool(&pool) {
 
 }
 
-bool Router::verify_token(const std::string& token, size_t& user_id) {
+bool Router::verify_token(const std::string& token, long long& user_id) {
 	try {
 		std::string secret = "amogus228";
 		auto real_token = jwt::decode<jwt_traits>(token);
 		jwt::verify<jwt_traits>()
 			.allow_algorithm(jwt::algorithm::hs256{ secret })
 			.with_issuer("MAXrknServer")
-			.verify(real_token);
+			.verify(real_token)
+			;
+		if (real_token.has_payload_claim("user_id")) {
+			user_id = std::stoll(real_token.get_payload_claim("user_id").as_string());
+		}
 		return true;
 	}
 	catch (const std::exception& e) {

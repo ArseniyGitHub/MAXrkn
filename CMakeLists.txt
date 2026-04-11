@@ -29,5 +29,6 @@ find_package(libpqxx CONFIG REQUIRED)
 
 
 
+
 # Включите подпроекты.
 add_subdirectory ("MAXrknServer")
