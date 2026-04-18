@@ -14,7 +14,8 @@ class RoomMenenger {
 public:
 	void join(long long, WsSession*);
 	void leave(long long, WsSession*);
-	void broadcast(long long, const std::string&);
+	void broadcast(long long, WsSession*, const std::string&);
 	void leave_all(WsSession*);
+	bool is_member(long long, WsSession*);
 };
 

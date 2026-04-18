@@ -28,6 +28,10 @@ private:
 	void do_read();
 	void on_read(beast::error_code, size_t);
 	void on_accept(beast::error_code);
+	void handle_send_message(const json&);
+	void handle_join_room(const json&);
+	void handle_typing(const json&);
+	void send_error(const std::string&);
 	beast::flat_buffer buffer;
 	RoomMenenger* chatroom;
 	DBPool* dbpool;

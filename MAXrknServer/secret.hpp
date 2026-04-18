@@ -1,3 +1,9 @@
-﻿#include <string>
+﻿#pragma once
+#include <string>
 
-std::string secret = "";
+class Secret{
+public:
+	static std::string secret_key;
+};
+
+std::string Secret::secret_key = "amogus_brbrdeputat_228";

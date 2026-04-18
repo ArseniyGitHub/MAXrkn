@@ -25,10 +25,10 @@ void RoomMenenger::leave(long long chat_id, WsSession* session)
 		it2->second.erase(chat_id);
 }
 
-void RoomMenenger::broadcast(long long chat_id, const std::string& msg)
+void RoomMenenger::broadcast(long long chat_id, WsSession* session, const std::string& msg)
 {
-	auto s = std::make_shared<std::string>(msg);
 	std::lock_guard<decltype(mutex)> lock(mutex);
+	auto s = std::make_shared<std::string>(msg);
 	auto it = room_to_sessions.find(chat_id);
 	if (it != room_to_sessions.end()) {
 		for (auto& e : it->second) {
@@ -53,4 +53,13 @@ void RoomMenenger::leave_all(WsSession* session) {
 		}
 		session_to_rooms.erase(it);
 	}
+}
+
+bool RoomMenenger::is_member(long long chat_id, WsSession* session) {
+	std::lock_guard<decltype(mutex)> lock(mutex);
+	auto it = session_to_rooms.find(session);
+	if (it != session_to_rooms.end()) {
+		return it->second.find(chat_id) != it->second.end();
+	}
+	return false;
 }
