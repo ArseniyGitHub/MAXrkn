@@ -23,18 +23,32 @@ void WsSession::handle_send_message(const json& m) {
 			send_error("You are not a member of this chat");
 			return;
 		}
+		std::string content = m["content"];
 		auto con = dbpool->getConnection();
 		pqxx::work w(*con);
-		auto res = w.exec_params("(WITH msg AS (INSERT INTO messages (sender_id, message_text, send_time, chat_id) values ($1, $2, NOW(), $3) RETURNING id, sender_id, send_time) SELECT i.id, i.send_time, u.username FROM msg i JOIN users u ON u.id = i.sender_id)", auth_user_id, m["content"].get<std::string>(), chat_id);
+		auto res = w.exec_params("(WITH msg AS (INSERT INTO messages (sender_id, message_text, send_time, chat_id) values ($1, $2, NOW(), $3) RETURNING id, sender_id, send_time) SELECT i.id, i.send_time, u.username FROM msg i JOIN users u ON u.id = i.sender_id)", 
+			auth_user_id, content, chat_id);
 		w.commit();
+		json attachments = json::array();
 		if (!res.empty()) {
 			json broadmsg;
-			broadmsg["id"] = res[0][0].as<long long>();
+			long long msg_id = res[0][0].as<long long>();
+			broadmsg["id"] = msg_id;
 			broadmsg["created_at"] = res[0][1].as<std::string>();
 			broadmsg["sender_name"] = res[0][2].as<std::string>();
 			broadmsg["chat_id"] = chat_id;
 			broadmsg["sender_id"] = auth_user_id;
-			broadmsg["content"] = m["content"];
+			broadmsg["content"] = content;
+			if (m.contains("attachments") && m["attachments"].is_array()) {
+				for (auto& e : m["attachments"]) {
+					std::string att_id = e.get<std::string>();
+					w.exec_params("UPDATE attachments msg_id = $1 WHERE id = $2", msg_id, att_id);
+					auto att_data = w.exec_params("SELECT display_name FROM attachments WHERE id = $1", att_id);
+					attachments.push_back({ {"id", att_id}, {"name", att_data[0][0].as<std::string>()} });
+				}
+			}
+			w.commit();
+			broadmsg["attachments"] = attachments;
 			chatroom->broadcast(chat_id, this, broadmsg.dump());
 		}
 	}

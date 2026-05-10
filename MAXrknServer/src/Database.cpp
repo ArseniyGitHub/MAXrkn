@@ -21,22 +21,32 @@ void DBPool::initDB() {
 		pqxx::connection c(connectionString);
 		pqxx::work w(c);
 		std::cout << "Отправляем Ваши данные правительству США...\n";
-
+		w.exec(lines(
+			"CREATE TABLE IF NOT EXISTS storage_files ",
+			"(id uuid default gen_random_uuid() primary key, ",
+			"file_path text, ",
+			"sha256_hash text unique not null, ",
+			"file_size bigint, ",
+			"created_at timestamptz default NOW(), ",
+			"ref_count bigint default 1",
+			");"
+		));
 		w.exec(lines(
 			"CREATE TABLE IF NOT EXISTS users ",
-			"(id serial primary key, ",
+			"(id bigint primary key, ",
 			"username text unique not null, ",
+			"name text, ",
 			"phone_number text, ",
 			"email text, ",
 			"password text, ",
-			"role text, ",
+			"role text default 'user', ",
 			"birthday timestamptz, ",
 			"create_time timestamptz",
 			");"
 		));
 		w.exec(lines(
 			"CREATE TABLE IF NOT EXISTS chats ",
-			"(id serial primary key, ",
+			"(id bigint primary key, ",
 			"name text, ",
 			"chat_type text default 'private', ",
 			"description text default '', ",
@@ -45,35 +55,43 @@ void DBPool::initDB() {
 		));
 		w.exec(lines(
 			"CREATE TABLE IF NOT EXISTS messages ",
-			"(id serial primary key, ",
-			"chat_id integer, ",
-			"sender_id integer, ",
+			"(id bigint primary key, ",
+			"chat_id bigint, ",
+			"sender_id bigint, ",
 			"message_text text, ",
 			"send_time timestamptz, ",
-			"reply_to_msg_id integer, ",
+			"reply_to_msg_id bigint default NULL, ",
+			"is_forwarded boolean default false, ",
 			"foreign key (chat_id) references chats (id) on delete cascade, ",
-			"foreign key (sender_id) references users (id) on delete set NULL",
+			"foreign key (sender_id) references users (id) on delete set NULL, ",
+			"foreign key (reply_to_msg_id) references messages (id) on delete set NULL",
 			");"
 		));
 		w.exec(lines(
 			"CREATE TABLE IF NOT EXISTS attachments ",
-			"(id serial primary key, ",
-			"msg_id integer, ",
-			"file_path text, ",
+			"(id uuid default gen_random_uuid() primary key, ",
+			"msg_id bigint, ",
+			"uploader_id bigint, ",
+			"display_name text, ",
+			"content_type text, ",
 			"send_data timestamptz, ",
-			"foreign key (msg_id) references messages (id) on delete cascade ",
+			"file_id uuid, ",
+			"foreign key (msg_id) references messages (id) on delete cascade, ",
+			"foreign key (uploader_id) references users (id), ",
+			"foreign key (file_id) references storage_files (id)",
 			");"
 		));
 		w.exec(lines(
 			"CREATE TABLE IF NOT EXISTS chat_members ",
-			"(chat_id integer, ",
-			"member_id integer, ",
+			"(chat_id bigint, ",
+			"member_id bigint, ",
 			"role text, ",
 			"primary key (chat_id, member_id), ",
 			"foreign key (chat_id) references chats (id) on delete cascade, ",
 			"foreign key (member_id) references users (id) on delete cascade",
 			");"
 		));
+		
 		w.commit();
 	}
 	catch (const std::exception& e) {

@@ -24,4 +24,5 @@ private:
 	http::message_generator handle_get_messages(http::request<http::string_body>&&);
 	http::message_generator handle_get_chats(http::request<http::string_body>&&);
 	http::message_generator handle_create_chat(http::request<http::string_body>&&);
+	http::message_generator handle_upload(http::request<http::string_body>&&);
 };

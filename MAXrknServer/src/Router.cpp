@@ -2,6 +2,9 @@
 #include <jwt-cpp/jwt.h>
 #include <jwt-cpp/traits/nlohmann-json/traits.h>
 #include "../secret.hpp"
+#include "utils/hash.hpp"
+#include <filesystem>
+#include <fstream>
 
 
 using jwt_traits = jwt::traits::nlohmann_json;
@@ -22,6 +25,9 @@ http::message_generator Router::handle_request(http::request<http::string_body>&
 			else if (target.starts_with("/api/chats")) {
 				return handle_create_chat(std::move(req));
 			}
+			else if (target.starts_with("/api/upload")) {
+				return handle_upload(std::move(req));
+			}
 			break;
 		case http::verb::get:
 			if (target.starts_with("/api/messages")) {
@@ -37,6 +43,50 @@ http::message_generator Router::handle_request(http::request<http::string_body>&
 	catch (const std::exception& e) {
 		std::cerr << "Внутренняя ошибка: " << e.what() << std::endl;
 		return make_error_responce(req, http::status::internal_server_error, "Внутренняя ошибка сервера");
+	}
+}
+
+http::message_generator Router::handle_upload(http::request<http::string_body>&& req) {
+	try {
+		std::string auth = req[http::field::authorization];
+		long long user_id;
+		if (!auth.starts_with("Bearer ")) {
+			return make_error_responce(req, http::status::unauthorized, "Unauthorized");
+		}
+		auth = auth.substr(7);
+		if (!verify_token(auth, user_id)) {
+			return make_error_responce(req, http::status::unauthorized, "Unauthorized");
+		}
+		std::string file_data = req.body();
+		std::string display_name = std::string(req["X-File-Name"]);
+		if (display_name.empty())display_name = "upload_" + std::to_string(std::time(nullptr));
+		std::string hash = calculate_sha256(file_data);
+		auto conn = dbpool->getConnection();
+		pqxx::work w(*conn);
+		auto res1 = w.exec_params("SELECT id, file_path FROM storage_files WHERE sha256_hash = $1", hash);
+		std::string file_id;
+		if (res1.empty()) {
+			auto fpath = "storage/" + hash;
+			if (!std::filesystem::exists(fpath))
+				std::filesystem::create_directory(fpath);
+			std::ofstream file(fpath, std::ios::binary);
+			file << file_data;
+			file.close();
+			auto res2 = w.exec_params("INSERT INTO storage_files (sha256_hash, file_size, file_path) VALUES ($1, $2, $3) RETURNING id", hash, (long long)file_data.size(), fpath);
+			file_id = res2[0][0].as<std::string>();
+		}
+		else {
+			file_id = res1[0][0].as<std::string>();
+			w.exec_params("UPDATE storage_files SET ref_count = ref_count + 1 WHERE id = $1", file_id);
+		}
+
+		auto res2 = w.exec_params("INSERT INTO attachments (uploader_id, display_name, content_type, file_id) VALUES ($1, $2, $3, $4) RETURNING id", user_id, display_name, std::string(req[http::field::content_type]), file_id);
+		std::string attachment_id = res2[0][0].as<std::string>();
+		w.commit();
+		return make_json_responce(req, { {"attachment_id", attachment_id} }, http::status::ok);
+	}
+	catch (const std::exception& e) {
+		return make_error_responce(req, http::status::internal_server_error, e.what());
 	}
 }
 
