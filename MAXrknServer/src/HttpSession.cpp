@@ -50,6 +50,12 @@ void HttpSession::on_read(beast::error_code err, size_t received) {
 		do_close();
 		return;
 	}
+	if(req.base().operator[](http::field::expect) == "100-continue") {
+		http::response<http::empty_body> continue_res{http::status::continue_, req.version()};
+		continue_res.set(http::field::server, "MAXrknServer");
+		continue_res.prepare_payload();
+		// beast::write(stream, continue_res);
+	}
 	auto resp = router->handle_request(std::move(req));
 	bool keep_alive = resp.keep_alive();
 	beast::async_write(stream, std::move(resp), beast::bind_front_handler(&HttpSession::on_write, shared_from_this(), keep_alive));

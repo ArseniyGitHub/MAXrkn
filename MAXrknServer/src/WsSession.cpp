@@ -42,7 +42,7 @@ void WsSession::handle_send_message(const json& m) {
 			if (m.contains("attachments") && m["attachments"].is_array()) {
 				for (auto& e : m["attachments"]) {
 					std::string att_id = e.get<std::string>();
-					w.exec_params("UPDATE attachments msg_id = $1 WHERE id = $2", msg_id, att_id);
+					w.exec_params("UPDATE attachments SET msg_id = $1 WHERE id = $2", msg_id, att_id);
 					auto att_data = w.exec_params("SELECT display_name FROM attachments WHERE id = $1", att_id);
 					attachments.push_back({ {"id", att_id}, {"name", att_data[0][0].as<std::string>()} });
 				}

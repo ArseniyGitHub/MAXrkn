@@ -33,7 +33,7 @@ void DBPool::initDB() {
 		));
 		w.exec(lines(
 			"CREATE TABLE IF NOT EXISTS users ",
-			"(id bigint primary key, ",
+			"(id bigint GENERATED ALWAYS AS IDENTITY primary key, ",
 			"username text unique not null, ",
 			"name text, ",
 			"phone_number text, ",
@@ -46,7 +46,7 @@ void DBPool::initDB() {
 		));
 		w.exec(lines(
 			"CREATE TABLE IF NOT EXISTS chats ",
-			"(id bigint primary key, ",
+			"(id bigint GENERATED ALWAYS AS IDENTITY primary key, ",
 			"name text, ",
 			"chat_type text default 'private', ",
 			"description text default '', ",
@@ -55,7 +55,7 @@ void DBPool::initDB() {
 		));
 		w.exec(lines(
 			"CREATE TABLE IF NOT EXISTS messages ",
-			"(id bigint primary key, ",
+			"(id bigint GENERATED ALWAYS AS IDENTITY primary key, ",
 			"chat_id bigint, ",
 			"sender_id bigint, ",
 			"message_text text, ",

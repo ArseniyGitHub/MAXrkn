@@ -46,6 +46,23 @@ http::message_generator Router::handle_request(http::request<http::string_body>&
 	}
 }
 
+static std::string base64_decode(const std::string& in) {
+	std::string out;
+	std::vector<int> T(256, -1);
+	for (int i = 0; i < 64; i++) T["ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"[i]] = i;
+	int val = 0, valb = -8;
+	for (unsigned char c : in) {
+		if (T[c] == -1) break;
+		val = (val << 6) + T[c];
+		valb += 6;
+		if (valb >= 0) {
+			out.push_back(char((val >> valb) & 0xFF));
+			valb -= 8;
+		}
+	}
+	return out;
+}
+
 http::message_generator Router::handle_upload(http::request<http::string_body>&& req) {
 	try {
 		std::string auth = req[http::field::authorization];
@@ -58,7 +75,7 @@ http::message_generator Router::handle_upload(http::request<http::string_body>&&
 			return make_error_responce(req, http::status::unauthorized, "Unauthorized");
 		}
 		std::string file_data = req.body();
-		std::string display_name = std::string(req["X-File-Name"]);
+		std::string display_name = base64_decode(std::string(req["X-File-Name"]));
 		if (display_name.empty())display_name = "upload_" + std::to_string(std::time(nullptr));
 		std::string hash = calculate_sha256(file_data);
 		auto conn = dbpool->getConnection();
@@ -216,7 +233,8 @@ http::message_generator Router::handle_get_messages(http::request<http::string_b
 		if (check.empty()) {
 			return make_error_responce(req, http::status::forbidden, "You are not a member of this chat");
 		}
-		pqxx::result r = n.exec_params("SELECT m.id, u.username, m.message_text, m.send_time, m.sender_id "
+		pqxx::result r = n.exec_params("SELECT m.id, u.username, m.message_text, m.send_time, m.sender_id, "
+			"(SELECT JSON_AGG(JSON_BUILD_OBJECT('id', a.id, 'name', a.display_name, 'content_type', a.content_type)) FROM attachments a WHERE a.msg_id = m.id) AS attachments "
 			"FROM messages m "
 			"LEFT JOIN users u ON m.sender_id = u.id "
 			"WHERE m.chat_id = $1 "
@@ -230,6 +248,7 @@ http::message_generator Router::handle_get_messages(http::request<http::string_b
 			message["created_at"] = e["send_time"].as<std::string>();
 			message["content"] = e["message_text"].as<std::string>();
 			message["chat_id"] = chat_id;
+			message["attachments"] = e["attachments"].is_null() ? json::array() : json::parse(e["attachments"].as<std::string>());
 			history.push_back(message);
 		}
 		return make_json_responce(req, history, http::status::ok);
